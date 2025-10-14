@@ -351,12 +351,14 @@ fun PiggyBuilderPanel(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        Text(
-            modifier = Modifier.align(Alignment.End),
-            text = "你还没有描述小猪",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.error,
-        )
+        AnimatedVisibility(description.isBlank()) {
+            Text(
+                modifier = Modifier.align(Alignment.End),
+                text = "你还没有描述小猪",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
     }
 }
 
