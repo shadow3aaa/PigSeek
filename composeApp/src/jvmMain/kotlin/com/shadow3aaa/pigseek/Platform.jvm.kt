@@ -1,8 +1,17 @@
 package com.shadow3aaa.pigseek
 
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.isPrimaryPressed
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.pointerInput
+import com.oldguy.common.io.IOException
 import com.oldguy.common.io.Uri
+import jdk.internal.org.jline.utils.InfoCmp
 import okio.FileSystem
 import okio.Path.Companion.toPath
 import okio.buffer
@@ -103,6 +112,20 @@ actual fun buildPiggyUri(sha: String): String {
     return targetFile.toURI().toString().replace("file:/", "file://")
 }
 
+actual fun deletePiggyFileFromUri(uri: String): String {
+    // Convert the URI string to a Path, then to a File
+    val file = Paths.get(uri.removePrefix("file://")).toFile()
+
+    if (!file.exists()) {
+        throw IOException("File not found: ${file.absolutePath}")
+    }
+    if (!file.delete()) {
+        throw IOException("Failed to delete file: ${file.absolutePath}")
+    }
+
+    return file.name
+}
+
 private fun getMetadataFile(): File {
     val userHome = System.getProperty("user.home")
     val piggyHomeDir = File(userHome, ".piggy_home")
@@ -188,4 +211,25 @@ actual fun sharePiggyImage(uri: String, description: String): ShareType {
     }
 
     return ShareType.Copy
+}
+
+actual fun Modifier.contextClick(
+    onClick: () -> Unit,
+    onDoubleClick: () -> Unit,
+    onContextClick: () -> Unit
+): Modifier = this.pointerInput(Unit) {
+    awaitEachGesture {
+        val down = awaitPointerEvent()  // 获取 PointerEvent,不是 PointerInputChange
+
+        if (down.changes.any { it.pressed }) {
+            when {
+                down.buttons.isPrimaryPressed -> {
+                    onClick()
+                }
+                down.buttons.isSecondaryPressed -> {
+                    onContextClick()
+                }
+            }
+        }
+    }
 }

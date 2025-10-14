@@ -33,15 +33,13 @@ fun App(
         mutableStateOf<String?>(null)
     }
     PiggyPackPicker(
-        show = showPiggyPackPicker,
-        onPiggyPackPicked = {
+        show = showPiggyPackPicker, onPiggyPackPicked = {
             showPiggyPackPicker = false
             pickedPiggyPackUri = it
             it?.let {
                 viewModel.importPiggyPack(it)
             }
-        }
-    )
+        })
 
     var pickedImageData by rememberSaveable {
         mutableStateOf<ImageData?>(null)
@@ -64,7 +62,11 @@ fun App(
             }
 
             Box(
-                modifier = Modifier.fillMaxWidth().systemBarsPadding().imePadding().padding(16.dp)
+                modifier = Modifier.fillMaxWidth().systemBarsPadding().imePadding().padding(
+                    top = 16.dp,
+                    start = 16.dp,
+                    end = 16.dp,
+                )
             ) {
                 Column {
                     Spacer(
@@ -72,26 +74,20 @@ fun App(
                     )
 
                     Text(
-                        text = "PigSeek",
-                        style = MaterialTheme.typography.titleLarge
+                        text = "PigSeek", style = MaterialTheme.typography.titleLarge
                     )
 
                     Spacer(modifier = Modifier.height(50.dp))
 
-                    OutlinedTextField(
-                        modifier = Modifier.fillMaxWidth(), value = searchText, onValueChange = {
-                            searchText = it
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "搜索小猪..."
-                            )
-                        },
-                        shape = RoundedCornerShape(percent = 50),
-                        placeholder = {
-                            Text("搜索小猪...")
-                        })
+                    OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = searchText, onValueChange = {
+                        searchText = it
+                    }, leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search, contentDescription = "搜索小猪..."
+                        )
+                    }, shape = RoundedCornerShape(percent = 50), placeholder = {
+                        Text("搜索小猪...")
+                    })
 
                     Spacer(modifier = Modifier.height(10.dp))
 
@@ -105,10 +101,13 @@ fun App(
                     }
 
                     Gallery(
-                        items = imageDataFilterMap(
+                        items = mapImageDataFilter(
                             filteredImageDatas
-                        )
-                    )
+                        ), onDelete = { uri ->
+                            viewModel.removePiggy(
+                                uri
+                            )
+                        })
                 }
 
                 Column(
@@ -171,8 +170,7 @@ fun App(
                             PiggyCard(
                                 modifier = Modifier.heightIn(max = 500.dp).align(
                                     Alignment.CenterHorizontally
-                                ),
-                                imageData = pickedImageData!!
+                                ), imageData = pickedImageData!!
                             )
 
                             Spacer(modifier = Modifier.height(10.dp))
@@ -192,8 +190,7 @@ fun App(
                 Dialog(
                     onDismissRequest = {
                         showExportPiggyPackDialog = false
-                    }
-                ) {
+                    }) {
                     Card {
                         Column(
                             modifier = Modifier.padding(16.dp)
@@ -210,8 +207,7 @@ fun App(
                             LinearProgressIndicator(
                                 progress = {
                                     progress
-                                }
-                            )
+                                })
 
                             Spacer(modifier = Modifier.height(10.dp))
 
@@ -224,19 +220,15 @@ fun App(
                                 modifier = Modifier.align(Alignment.End)
                             ) {
                                 TextButton(
-                                    enabled = progress >= 1f,
-                                    onClick = {
+                                    enabled = progress >= 1f, onClick = {
                                         sharePiggyPack()
-                                    }
-                                ) {
+                                    }) {
                                     Text("分享")
                                 }
                                 TextButton(
-                                    enabled = progress >= 1.0,
-                                    onClick = {
+                                    enabled = progress >= 1.0, onClick = {
                                         showExportPiggyPackDialog = false
-                                    }
-                                ) {
+                                    }) {
                                     Text("确认")
                                 }
                             }
@@ -252,8 +244,7 @@ fun App(
                     onDismissRequest = {
                         pickedPiggyPackUri = null
                         importFromShareUri = null
-                    }
-                ) {
+                    }) {
                     Card {
                         Column(
                             modifier = Modifier.padding(16.dp)
@@ -270,8 +261,7 @@ fun App(
                             LinearProgressIndicator(
                                 progress = {
                                     progress
-                                }
-                            )
+                                })
 
                             Spacer(modifier = Modifier.height(10.dp))
 
@@ -282,13 +272,10 @@ fun App(
                             Spacer(modifier = Modifier.height(10.dp))
 
                             TextButton(
-                                modifier = Modifier.align(Alignment.End),
-                                enabled = progress >= 1.0,
-                                onClick = {
+                                modifier = Modifier.align(Alignment.End), enabled = progress >= 1.0, onClick = {
                                     pickedPiggyPackUri = null
                                     importFromShareUri = null
-                                }
-                            ) {
+                                }) {
                                 Text("确认")
                             }
                         }
@@ -310,18 +297,13 @@ fun PiggyBuilderPanel(
             mutableStateOf("")
         }
 
-        OutlinedTextField(
-            modifier = Modifier.fillMaxWidth(),
-            value = description,
-            onValueChange = {
-                description = it
-            },
-            placeholder = {
-                Text(
-                    "描述小猪...",
-                )
-            }
-        )
+        OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = description, onValueChange = {
+            description = it
+        }, placeholder = {
+            Text(
+                "描述小猪...",
+            )
+        })
 
         Spacer(modifier = Modifier.height(5.dp))
 
@@ -338,8 +320,7 @@ fun PiggyBuilderPanel(
             Spacer(modifier = Modifier.width(5.dp))
 
             TextButton(
-                enabled = description.isNotBlank(),
-                onClick = {
+                enabled = description.isNotBlank(), onClick = {
                     saveImageData(
                         description
                     )
@@ -362,7 +343,7 @@ fun PiggyBuilderPanel(
     }
 }
 
-fun imageDataFilterMap(
+fun mapImageDataFilter(
     datas: Map<String, String>
 ): List<ImageData> {
     return datas.map { (sha, description) ->

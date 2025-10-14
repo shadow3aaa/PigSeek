@@ -111,6 +111,21 @@ class PiggyViewModel : ViewModel() {
             _images.value = Json.decodeFromString(metadataRaw)
         }
     }
+
+    fun removePiggy(uri: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val sha = deletePiggyFileFromUri(uri)
+            val currentImages = _images.value.toMutableMap()
+            currentImages.remove(sha)
+            _images.value = currentImages
+            val newMetadataRaw = Json.encodeToString(
+                _images.value
+            )
+            saveMetadataRaw(
+                newMetadataRaw
+            )
+        }
+    }
 }
 
 fun calculateImageSHA256(byteArray: ByteArray): String {
@@ -134,3 +149,4 @@ expect fun saveMetadataRaw(raw: String)
 expect fun piggyHomePath(): String
 expect fun getCachePath(): String
 expect fun getPiggyPackFileFromUri(uri: String): File
+expect fun deletePiggyFileFromUri(uri: String): String // 返回sha

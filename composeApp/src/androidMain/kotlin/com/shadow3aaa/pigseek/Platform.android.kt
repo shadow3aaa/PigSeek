@@ -8,10 +8,13 @@ import android.net.Uri
 import android.webkit.MimeTypeMap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Modifier
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
+import com.oldguy.common.io.IOException
 import okio.Path.Companion.toPath
 import okio.buffer
 import okio.sink
@@ -115,6 +118,22 @@ actual fun buildPiggyUri(sha: String): String {
     val targetFile = File(piggyHomeDir, sha)
 
     return Uri.fromFile(targetFile).toString()
+}
+
+actual fun deletePiggyFileFromUri(uri: String): String {
+    val parsed = Uri.parse(uri)
+    val path = parsed.path ?: throw IllegalArgumentException("Invalid uri: $uri")
+    val file = File(path)
+
+    if (!file.exists()) {
+        throw IOException("File not found: $path")
+    }
+    if (!file.delete()) {
+        throw IOException("Failed to delete file: $path")
+    }
+
+    // 删除成功，返回 sha（文件名）
+    return file.name
 }
 
 private fun getMetadataFile(context: Context): File {
@@ -224,3 +243,15 @@ actual fun sharePiggyImage(uri: String, description: String): ShareType {
 
     return ShareType.Others
 }
+
+actual fun Modifier.contextClick(
+    onClick: () -> Unit,
+    onDoubleClick: () -> Unit,
+    onContextClick: () -> Unit
+): Modifier = this.then(
+    Modifier.combinedClickable(
+        onClick = onClick,
+        onDoubleClick = onDoubleClick,
+        onLongClick = onContextClick
+    )
+)

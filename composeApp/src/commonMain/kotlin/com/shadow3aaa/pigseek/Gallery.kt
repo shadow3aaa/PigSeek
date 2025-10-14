@@ -1,22 +1,21 @@
 package com.shadow3aaa.pigseek
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.items
-import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.material3.Card
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
@@ -24,12 +23,9 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
-import kotlinx.coroutines.launch
 
 @Composable
-fun Gallery(items: List<ImageData>) {
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+fun Gallery(items: List<ImageData>, onDelete: (String) -> Unit) {
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(3),
         modifier = Modifier.fillMaxWidth().wrapContentHeight(),
@@ -37,22 +33,43 @@ fun Gallery(items: List<ImageData>) {
         verticalItemSpacing = 5.dp,
     ) {
         items(items = items) { img ->
-            PiggyCard(
-                imageData = img,
-                onClick = {
-                    when (sharePiggyImage(
-                        uri = img.uri,
-                        description = img.description
-                    )) {
-                        ShareType.Copy -> {
-                            scope.launch {
-                                snackbarHostState.showSnackbar("copied")
+            var showMenu by rememberSaveable { mutableStateOf(false) }
+
+            Box {
+                PiggyCard(
+                    modifier = Modifier.contextClick(
+                        onContextClick = {
+                            showMenu = true  // 右键时显示菜单
+                        },
+                        onClick = {
+                            println("clicked")
+                            when (sharePiggyImage(
+                                uri = img.uri,
+                                description = img.description
+                            )) {
+                                ShareType.Copy -> {
+                                    // TODO: show snackbar
+                                }
+                                ShareType.Others -> {}
                             }
                         }
-                        ShareType.Others -> {}
-                    }
+                    ).fillMaxWidth(),
+                    imageData = img,
+                )
+
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("删除") },
+                        onClick = {
+                            onDelete(img.uri)
+                            showMenu = false
+                        }
+                    )
                 }
-            )
+            }
         }
     }
 }
@@ -70,12 +87,18 @@ expect fun sharePiggyImage(
 @Composable
 fun PiggyCard(
     modifier: Modifier = Modifier,
-    onClick: () -> Unit = {},
+    onClick: (() -> Unit)? = null,
     imageData: ImageData,
 ) {
+    var finalModifier = modifier
+    if (onClick != null) {
+        finalModifier = modifier.clickable {
+            onClick()
+        }
+    }
+
     Card(
-        modifier = modifier,
-        onClick = onClick
+        modifier = finalModifier,
     ) {
         Column {
             AsyncImage(
