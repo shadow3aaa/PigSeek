@@ -111,7 +111,7 @@ fun App(
                 }
 
                 Column(
-                    modifier = Modifier.align(Alignment.BottomEnd).width(150.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).width(180.dp).padding(10.dp),
                 ) {
                     ExtendedFloatingActionButton(modifier = Modifier.fillMaxWidth(), onClick = {
                         showImagePicker = true
