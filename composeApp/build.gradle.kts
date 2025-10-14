@@ -97,9 +97,28 @@ compose.desktop {
         mainClass = "com.shadow3aaa.pigseek.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.shadow3aaa.pigseek"
+            packageName = "PigSeek"
             packageVersion = "1.0.0"
+
+            targetFormats(TargetFormat.Msi, TargetFormat.Dmg, TargetFormat.Deb)
+
+            windows {
+                menuGroup = "PigSeek"
+                shortcut = true
+                // 安装到当前用户目录（小猪图是按用户保存的）
+                perUserInstall = true
+                iconFile.set(project.file("src/jvmMain/resources/icon.ico"))
+            }
+
+            macOS {
+                iconFile.set(project.file("src/jvmMain/resources/icon.icns"))
+                bundleID = "com.shadow3aaa.pigseek"
+            }
+
+            linux {
+                iconFile.set(project.file("src/jvmMain/resources/icon.webp"))
+                shortcut = true
+            }
         }
     }
 }
