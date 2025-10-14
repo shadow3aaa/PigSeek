@@ -48,6 +48,7 @@ kotlin {
             implementation(libs.material.icons)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kmp.io)
+            implementation(compose.components.resources)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
