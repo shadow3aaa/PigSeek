@@ -1,0 +1,136 @@
+package com.shadow3aaa.pigseek
+
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.oldguy.common.io.File
+import com.oldguy.common.io.FileMode
+import com.oldguy.common.io.ZipFile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import okio.*
+import okio.Path.Companion.toPath
+
+class PiggyViewModel : ViewModel() {
+    private var inited = false
+    private val _images = MutableStateFlow<Map<String, String>>(emptyMap())
+    val images: StateFlow<Map<String, String>> = _images.asStateFlow()
+    private val _exportProgress = MutableStateFlow(0f)
+    val exportProgress: StateFlow<Float> = _exportProgress.asStateFlow()
+    private val _importProgress = MutableStateFlow(0f)
+    val importProgress: StateFlow<Float> = _importProgress.asStateFlow()
+    var importFromShare = mutableStateOf<String?>(null)
+
+    fun initPiggy() {
+        if (inited) {
+            return
+        }
+
+        inited = true
+        viewModelScope.launch {
+            val metadataRaw = readMetadataRaw()
+            try {
+                _images.value = Json.decodeFromString(metadataRaw)
+            } catch (_: Exception) {
+                saveMetadataRaw("{}")
+            }
+        }
+    }
+
+    fun addImage(
+        imageData: ImageData
+    ) {
+        viewModelScope.launch(context = Dispatchers.IO) {
+            val rawImageData = readImage(
+                imageData.uri
+            )
+            val sha = calculateImageSHA256(rawImageData)
+            saveIntoPiggyHome(
+                sha = sha, rawImageData = rawImageData
+            )
+            _images.value += (sha to imageData.description)
+            val newMetadataRaw = Json.encodeToString(
+                _images.value
+            )
+            saveMetadataRaw(
+                newMetadataRaw
+            )
+        }
+    }
+
+    fun exportPiggyPack() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _exportProgress.value = 0f
+            val len = _images.value.keys.size + 1 // ADD 1是为了metadata.json
+            val zip = File(filePath = getCachePath().toPath().resolve("PiggyPackage.zip").toString())
+            val sourceDirectory = File(piggyHomePath())
+            if (zip.exists) {
+                zip.delete()
+            }
+            var counter = 0
+
+            ZipFile(fileArg = zip, mode = FileMode.Write, zip64 = false).use { zip ->
+                zip.zipDirectory(sourceDirectory, shallow = false) { name ->
+                    counter += 1
+                    _exportProgress.value = counter.toFloat() / len.toFloat()
+                    true
+                }
+            }
+        }
+    }
+
+    fun importPiggyPack(sourceUri: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _importProgress.value = 0f
+
+            val zipFile = getPiggyPackFileFromUri(sourceUri)
+            val targetDir = File(piggyHomePath()) // 解压到 piggyHomePath
+
+            ZipFile(zipFile, FileMode.Read).use { zip ->
+                val entries = zip.entries
+                val total = entries.size
+                var counter = 0
+
+                zip.extractToDirectory(
+                    directory = targetDir,
+                    filter = null,
+                ) { entry ->
+                    counter += 1
+                    _importProgress.value = counter.toFloat() / total.toFloat()
+                    entry.name
+                }
+            }
+
+            val metadataRaw = readMetadataRaw()
+            _images.value = Json.decodeFromString(metadataRaw)
+        }
+    }
+}
+
+fun calculateImageSHA256(byteArray: ByteArray): String {
+    val sha256Sink = HashingSink.sha256(blackholeSink())
+
+    sha256Sink.buffer().use { bufferedSink ->
+        bufferedSink.write(byteArray)
+    }
+
+    val hash: ByteString = sha256Sink.hash
+    return hash.hex()
+}
+
+expect fun readImage(uri: String): ByteArray
+expect fun saveIntoPiggyHome(
+    sha: String, rawImageData: ByteArray
+)
+
+expect fun readMetadataRaw(): String
+expect fun saveMetadataRaw(raw: String)
+expect fun piggyHomePath(): String
+expect fun getCachePath(): String
+expect fun getPiggyPackFileFromUri(uri: String): File
