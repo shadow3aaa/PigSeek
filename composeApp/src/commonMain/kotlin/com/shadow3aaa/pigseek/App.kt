@@ -13,10 +13,15 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import org.jetbrains.compose.resources.painterResource
+import pigseek.composeapp.generated.resources.Res
+import pigseek.composeapp.generated.resources.icon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,6 +82,14 @@ fun App(
                         text = "PigSeek", style = MaterialTheme.typography.titleLarge
                     )
 
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    val imageDatas by viewModel.images.collectAsState()
+
+                    Text(text = "已入住 ${imageDatas.size} 只小猪", style = MaterialTheme.typography.labelSmall, color =
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
                     Spacer(modifier = Modifier.height(50.dp))
 
                     OutlinedTextField(modifier = Modifier.fillMaxWidth(), value = searchText, onValueChange = {
@@ -91,7 +104,7 @@ fun App(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    val imageDatas by viewModel.images.collectAsState()
+
                     val filteredAndSortedImageDatas = remember(searchText, imageDatas) {
                         if (searchText.isBlank()) {
                             mapImageDataFilter(imageDatas) // 搜索框为空时，显示所有
