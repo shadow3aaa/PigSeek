@@ -15,6 +15,8 @@ import java.awt.datatransfer.StringSelection
 import java.awt.datatransfer.Transferable
 import java.awt.datatransfer.UnsupportedFlavorException
 import java.io.File
+import java.net.URI
+import java.nio.file.Paths
 import javax.imageio.ImageIO
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
@@ -173,22 +175,17 @@ private class ImageTransferable(private val image: Image) : Transferable {
 
 actual fun sharePiggyImage(uri: String, description: String): ShareType {
     try {
-        val imageFile = File(java.net.URI(uri))
-
+        val imageFile = File(uri.removePrefix("file://"))
         val image = ImageIO.read(imageFile)
 
         if (image != null) {
             val transferable = ImageTransferable(image)
             val clipboard = Toolkit.getDefaultToolkit().systemClipboard
             clipboard.setContents(transferable, null)
-            println("Image copied to clipboard.")
-        } else {
-            println("Failed to read image from file.")
         }
     } catch (e: Exception) {
         e.printStackTrace()
     }
 
-    // 即使复制图片成功，也返回 Copy 类型
     return ShareType.Copy
 }
