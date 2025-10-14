@@ -92,18 +92,46 @@ fun App(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     val imageDatas by viewModel.images.collectAsState()
-                    val filteredImageDatas = if (searchText.isBlank()) {
-                        imageDatas
-                    } else {
-                        imageDatas.filter {
-                            it.value.contains(searchText)
+                    val filteredAndSortedImageDatas = remember(searchText, imageDatas) {
+                        if (searchText.isBlank()) {
+                            mapImageDataFilter(imageDatas) // 搜索框为空时，显示所有
+                        } else {
+                            val searchQuery = searchText.lowercase()
+
+                            // 低于这个值的结果将被忽略
+                            val SIMILARITY_THRESHOLD = 0.7
+
+                            imageDatas
+                                .map { (sha, description) ->
+                                    val imageData = ImageData(uri = buildPiggyUri(sha = sha), description = description)
+                                    val descriptionLower = description.lowercase()
+
+                                    // 计算两个分数：
+                                    // 1. 是否直接包含（权重最高）
+                                    // 2. Jaro-Winkler 相似度分数
+                                    val containsMatch = descriptionLower.contains(searchQuery)
+                                    val similarity = jaroWinklerSimilarity(descriptionLower, searchQuery)
+
+                                    // 使用 Triple 存储图像数据、是否包含以及相似度分数
+                                    Triple(imageData, containsMatch, similarity)
+                                }
+                                .filter { (_, containsMatch, similarity) ->
+                                    containsMatch || similarity >= SIMILARITY_THRESHOLD
+                                }
+                                .sortedWith(
+                                    // 自定义排序规则：
+                                    // 1. “直接包含”的结果排在最前面
+                                    // 2. 如果两个都“直接包含”或都“不包含”，则按“相似度分数”降序排
+                                    compareByDescending<Triple<ImageData, Boolean, Double>> { it.second } // true (包含) > false
+                                        .thenByDescending { it.third } // 按相似度降序
+                                )
+                                .map { it.first } // 最后，只取出图像数据
                         }
                     }
 
                     Gallery(
-                        items = mapImageDataFilter(
-                            filteredImageDatas
-                        ), onDelete = { uri ->
+                        items = filteredAndSortedImageDatas, // 使用新的、排序更优的列表
+                        onDelete = { uri ->
                             viewModel.removePiggy(
                                 uri
                             )
