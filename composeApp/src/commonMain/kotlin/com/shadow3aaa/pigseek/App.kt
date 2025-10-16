@@ -1,8 +1,6 @@
 package com.shadow3aaa.pigseek
 
 import androidx.compose.animation.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,8 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -110,8 +107,7 @@ fun App(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        text = text,
-                                        style = MaterialTheme.typography.labelSmall
+                                        text = text, style = MaterialTheme.typography.labelSmall
                                     )
 
                                     if (isImportComplete) {
@@ -120,8 +116,7 @@ fun App(
 
                                     AnimatedVisibility(isProgressVisible) {
                                         CircularProgressIndicator(
-                                            progress = { progress },
-                                            modifier = Modifier.size(20.dp)
+                                            progress = { progress }, modifier = Modifier.size(20.dp)
                                         )
                                     }
 
@@ -142,8 +137,9 @@ fun App(
                     val imageDatas by viewModel.images.collectAsState()
 
                     Text(
-                        text = "已入住 ${imageDatas.size} 只小猪", style = MaterialTheme.typography.labelSmall, color =
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "已入住 ${imageDatas.size} 只小猪",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Spacer(modifier = Modifier.height(50.dp))
@@ -170,31 +166,27 @@ fun App(
                             // 低于这个值的结果将被忽略
                             val SIMILARITY_THRESHOLD = 0.7
 
-                            imageDatas
-                                .map { (sha, description) ->
-                                    val imageData = ImageData(uri = buildPiggyUri(sha = sha), description = description)
-                                    val descriptionLower = description.lowercase()
+                            imageDatas.map { (sha, description) ->
+                                val imageData = ImageData(uri = buildPiggyUri(sha = sha), description = description)
+                                val descriptionLower = description.lowercase()
 
-                                    // 计算两个分数：
-                                    // 1. 是否直接包含（权重最高）
-                                    // 2. Jaro-Winkler 相似度分数
-                                    val containsMatch = descriptionLower.contains(searchQuery)
-                                    val similarity = jaroWinklerSimilarity(descriptionLower, searchQuery)
+                                // 计算两个分数：
+                                // 1. 是否直接包含（权重最高）
+                                // 2. Jaro-Winkler 相似度分数
+                                val containsMatch = descriptionLower.contains(searchQuery)
+                                val similarity = jaroWinklerSimilarity(descriptionLower, searchQuery)
 
-                                    // 使用 Triple 存储图像数据、是否包含以及相似度分数
-                                    Triple(imageData, containsMatch, similarity)
-                                }
-                                .filter { (_, containsMatch, similarity) ->
-                                    containsMatch || similarity >= SIMILARITY_THRESHOLD
-                                }
-                                .sortedWith(
-                                    // 自定义排序规则：
-                                    // 1. “直接包含”的结果排在最前面
-                                    // 2. 如果两个都“直接包含”或都“不包含”，则按“相似度分数”降序排
-                                    compareByDescending<Triple<ImageData, Boolean, Double>> { it.second } // true (包含) > false
-                                        .thenByDescending { it.third } // 按相似度降序
-                                )
-                                .map { it.first } // 最后，只取出图像数据
+                                // 使用 Triple 存储图像数据、是否包含以及相似度分数
+                                Triple(imageData, containsMatch, similarity)
+                            }.filter { (_, containsMatch, similarity) ->
+                                containsMatch || similarity >= SIMILARITY_THRESHOLD
+                            }.sortedWith(
+                                // 自定义排序规则：
+                                // 1. “直接包含”的结果排在最前面
+                                // 2. 如果两个都“直接包含”或都“不包含”，则按“相似度分数”降序排
+                                compareByDescending<Triple<ImageData, Boolean, Double>> { it.second } // true (包含) > false
+                                    .thenByDescending { it.third } // 按相似度降序
+                            ).map { it.first } // 最后，只取出图像数据
                         }
                     }
 
@@ -207,75 +199,47 @@ fun App(
                         })
                 }
 
-                // Scrim
-                if (isFabMenuOpen) {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.4f))
-                            .pointerInput(Unit) { detectTapGestures { isFabMenuOpen = false } }
-                    )
-                }
-
                 // FAB Menu
                 Column(
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-                    horizontalAlignment = Alignment.End
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp), horizontalAlignment = Alignment.End
                 ) {
                     AnimatedVisibility(
                         visible = isFabMenuOpen,
                         enter = fadeIn() + slideInVertically(),
-                        exit = fadeOut() + slideOutVertically()
+                        exit = fadeOut() + slideOutVertically(),
+                        modifier = Modifier.clipToBounds()
                     ) {
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            horizontalAlignment = Alignment.End
+                            verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.End
                         ) {
                             // Action: Import
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Surface(shape = RoundedCornerShape(8.dp), shadowElevation = 2.dp) {
-                                    Text(
-                                        "导入小猪包",
-                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
-                                    )
-                                }
-                                SmallFloatingActionButton(onClick = {
-                                    showPiggyPackPicker = true; isFabMenuOpen = false
-                                }) { Icon(Icons.Default.CreateNewFolder, "导入小猪包") }
-                            }
+                            ExtendedFloatingActionButton(onClick = {
+                                showPiggyPackPicker = true
+                                isFabMenuOpen = false
+                            }, text = {
+                                Text("导入小猪包")
+                            }, icon = {
+                                Icon(Icons.Default.CreateNewFolder, "导入小猪包")
+                            })
                             // Action: Export
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Surface(shape = RoundedCornerShape(8.dp), shadowElevation = 2.dp) {
-                                    Text(
-                                        "导出小猪包",
-                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
-                                    )
-                                }
-                                SmallFloatingActionButton(onClick = {
-                                    showExportPiggyPackDialog = true; viewModel.exportPiggyPack(); isFabMenuOpen = false
-                                }) { Icon(Icons.Outlined.Share, "导出小猪包") }
-                            }
+                            ExtendedFloatingActionButton(onClick = {
+                                showExportPiggyPackDialog = true
+                                viewModel.exportPiggyPack()
+                                isFabMenuOpen = false
+                            }, text = {
+                                Text("导出小猪包")
+                            }, icon = {
+                                Icon(Icons.Default.Share, "导出小猪包")
+                            })
                             // Action: Add
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Surface(shape = RoundedCornerShape(8.dp), shadowElevation = 2.dp) {
-                                    Text(
-                                        "添加新的小猪",
-                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
-                                    )
-                                }
-                                SmallFloatingActionButton(onClick = {
-                                    showImagePicker = true; isFabMenuOpen = false
-                                }) { Icon(Icons.Outlined.Add, "添加新的小猪") }
-                            }
+                            ExtendedFloatingActionButton(onClick = {
+                                showImagePicker = true
+                                isFabMenuOpen = false
+                            }, text = {
+                                Text("添加新的小猪")
+                            }, icon = {
+                                Icon(Icons.Default.Add, "添加新的小猪")
+                            })
                         }
                     }
                     Spacer(Modifier.height(16.dp))
