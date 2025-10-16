@@ -31,6 +31,9 @@ fun Gallery(items: List<ImageData>, onDelete: (String) -> Unit) {
         modifier = Modifier.fillMaxWidth().wrapContentHeight(),
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalItemSpacing = 5.dp,
+        contentPadding = PaddingValues(
+            bottom = 100.dp
+        )
     ) {
         items(items = items) { img ->
             var showMenu by rememberSaveable { mutableStateOf(false) }
