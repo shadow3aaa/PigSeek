@@ -42,7 +42,7 @@ class PiggyViewModel : ViewModel() {
 
                 metadataResult.onSuccess { metadataJson ->
                     val remoteImages = Json.decodeFromString<Map<String, String>>(metadataJson)
-                    val localImages = _images.value
+                    val localImages = _images.value.toMutableMap()
 
                     val missingShas = remoteImages.keys - localImages.keys
 
@@ -60,6 +60,7 @@ class PiggyViewModel : ViewModel() {
                     for (sha in missingShas) {
                         _syncState.value = SyncState.Downloading(downloadedCount.toFloat() / totalToDownload.toFloat())
                         val urlResult = GitHubService.getRawFileUrl(repoOwner, repoName, sha)
+
                         urlResult.onSuccess { url ->
                             val destination = File(piggyHomePath().toPath().resolve(sha).toString())
                             val downloadResult = GitHubService.downloadFile(url, destination) { _ ->
@@ -68,6 +69,11 @@ class PiggyViewModel : ViewModel() {
 
                             if (downloadResult.isSuccess) {
                                 downloadedCount++
+                                remoteImages[sha]?.let { description ->
+                                    localImages[sha] = description
+                                    _images.value = localImages
+                                    saveMetadataRaw(Json.encodeToString(localImages))
+                                }
                                 _syncState.value = SyncState.Downloading(downloadedCount.toFloat() / totalToDownload.toFloat())
                             } else {
                                 throw downloadResult.exceptionOrNull() ?: Exception("Unknown download error")
@@ -77,8 +83,6 @@ class PiggyViewModel : ViewModel() {
                         }
                     }
 
-                    _images.value = remoteImages
-                    saveMetadataRaw(metadataJson)
                     _syncState.value = SyncState.Completed
                     delay(100)
                     _syncState.value = SyncState.Idle
