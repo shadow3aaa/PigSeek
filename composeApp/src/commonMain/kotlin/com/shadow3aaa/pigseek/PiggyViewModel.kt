@@ -9,12 +9,13 @@ import com.oldguy.common.io.FileMode
 import com.oldguy.common.io.ZipFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import okio.*
+import okio.* 
 import okio.Path.Companion.toPath
 
 class PiggyViewModel : ViewModel() {
@@ -26,6 +27,69 @@ class PiggyViewModel : ViewModel() {
     private val _importProgress = MutableStateFlow(0f)
     val importProgress: StateFlow<Float> = _importProgress.asStateFlow()
     var importFromShare = mutableStateOf<String?>(null)
+
+    private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
+    val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
+
+    fun syncFromGitHub() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                _syncState.value = SyncState.FetchingMetadata
+                val repoOwner = "shadow3aaa"
+                val repoName = "PigSeek-Data"
+
+                val metadataResult = GitHubService.getLatestMetadataContent(repoOwner, repoName)
+
+                metadataResult.onSuccess { metadataJson ->
+                    val remoteImages = Json.decodeFromString<Map<String, String>>(metadataJson)
+                    val localImages = _images.value
+
+                    val missingShas = remoteImages.keys - localImages.keys
+
+                    if (missingShas.isEmpty()) {
+                        delay(100)
+                        _syncState.value = SyncState.Success("云端小猪已全部入住")
+                        delay(1000)
+                        _syncState.value = SyncState.Idle
+                        return@launch
+                    }
+
+                    var downloadedCount = 0
+                    val totalToDownload = missingShas.size
+
+                    for (sha in missingShas) {
+                        _syncState.value = SyncState.Downloading(downloadedCount.toFloat() / totalToDownload.toFloat())
+                        val urlResult = GitHubService.getRawFileUrl(repoOwner, repoName, sha)
+                        urlResult.onSuccess { url ->
+                            val destination = File(piggyHomePath().toPath().resolve(sha).toString())
+                            val downloadResult = GitHubService.downloadFile(url, destination) { _ ->
+                                // Individual file progress can be handled here if needed
+                            }
+
+                            if (downloadResult.isSuccess) {
+                                downloadedCount++
+                                _syncState.value = SyncState.Downloading(downloadedCount.toFloat() / totalToDownload.toFloat())
+                            } else {
+                                throw downloadResult.exceptionOrNull() ?: Exception("Unknown download error")
+                            }
+                        }.onFailure {
+                            throw it
+                        }
+                    }
+
+                    _images.value = remoteImages
+                    saveMetadataRaw(metadataJson)
+                    _syncState.value = SyncState.Completed
+                    delay(100)
+                    _syncState.value = SyncState.Idle
+                }.onFailure {
+                    _syncState.value = SyncState.Error("获取元数据失败: ${it.message}")
+                }
+            } catch (e: Exception) {
+                _syncState.value = SyncState.Error("同步出错: ${e.message}")
+            }
+        }
+    }
 
     fun initPiggy() {
         if (inited) {
@@ -125,6 +189,11 @@ class PiggyViewModel : ViewModel() {
                 newMetadataRaw
             )
         }
+    }
+
+    fun resetSyncState() {
+        _syncState.value = SyncState.Idle
+        _importProgress.value = 0f
     }
 }
 

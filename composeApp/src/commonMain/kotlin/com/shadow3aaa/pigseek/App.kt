@@ -1,11 +1,12 @@
 package com.shadow3aaa.pigseek
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CreateNewFolder
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
@@ -13,21 +14,19 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
-import org.jetbrains.compose.resources.painterResource
-import pigseek.composeapp.generated.resources.Res
-import pigseek.composeapp.generated.resources.icon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun App(
     viewModel: PiggyViewModel = viewModel()
 ) {
+    var isFabMenuOpen by rememberSaveable { mutableStateOf(false) }
     viewModel.initPiggy()
     var showExportPiggyPackDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -78,16 +77,73 @@ fun App(
                         modifier = Modifier.height(30.dp)
                     )
 
-                    Text(
-                        text = "PigSeek", style = MaterialTheme.typography.titleLarge
-                    )
+                    val syncState by viewModel.syncState.collectAsState()
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "PigSeek", style = MaterialTheme.typography.titleLarge
+                        )
+
+                        Card(shape = RoundedCornerShape(12.dp), onClick = {
+                            viewModel.syncFromGitHub()
+                        }) {
+                            val importProgress by viewModel.importProgress.collectAsState()
+
+                            val isImportComplete = importProgress >= 1f
+
+                            val (text, progress, isProgressVisible) = when (val state = syncState) {
+                                is SyncState.Idle -> Triple("同步云小猪", 0f, false)
+                                is SyncState.FetchingMetadata -> Triple("正在获取云端小猪...", 0f, false)
+                                is SyncState.Downloading -> Triple("正在更新数据...", state.progress, true)
+                                is SyncState.Success -> Triple(state.message, 0f, false)
+                                is SyncState.Error -> Triple(state.message, 0f, false)
+                                is SyncState.Completed -> Triple("同步完成", 1f, true)
+                            }
+
+                            Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp).wrapContentWidth()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = text,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+
+                                    if (isImportComplete) {
+                                        viewModel.resetSyncState()
+                                    }
+
+                                    AnimatedVisibility(isProgressVisible) {
+                                        CircularProgressIndicator(
+                                            progress = { progress },
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+
+                                    AnimatedVisibility(!isProgressVisible) {
+                                        Icon(
+                                            modifier = Modifier.size(20.dp),
+                                            imageVector = Icons.Default.CloudDownload,
+                                            contentDescription = "云端同步"
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
                     val imageDatas by viewModel.images.collectAsState()
 
-                    Text(text = "已入住 ${imageDatas.size} 只小猪", style = MaterialTheme.typography.labelSmall, color =
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    Text(
+                        text = "已入住 ${imageDatas.size} 只小猪", style = MaterialTheme.typography.labelSmall, color =
+                            MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Spacer(modifier = Modifier.height(50.dp))
@@ -151,48 +207,84 @@ fun App(
                         })
                 }
 
+                // Scrim
+                if (isFabMenuOpen) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.4f))
+                            .pointerInput(Unit) { detectTapGestures { isFabMenuOpen = false } }
+                    )
+                }
+
+                // FAB Menu
                 Column(
-                    modifier = Modifier.align(Alignment.BottomEnd).width(180.dp).padding(10.dp),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                    horizontalAlignment = Alignment.End
                 ) {
-                    ExtendedFloatingActionButton(modifier = Modifier.fillMaxWidth(), onClick = {
-                        showImagePicker = true
-                    }, icon = {
+                    AnimatedVisibility(
+                        visible = isFabMenuOpen,
+                        enter = fadeIn() + slideInVertically(),
+                        exit = fadeOut() + slideOutVertically()
+                    ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalAlignment = Alignment.End
+                        ) {
+                            // Action: Import
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Surface(shape = RoundedCornerShape(8.dp), shadowElevation = 2.dp) {
+                                    Text(
+                                        "导入小猪包",
+                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
+                                    )
+                                }
+                                SmallFloatingActionButton(onClick = {
+                                    showPiggyPackPicker = true; isFabMenuOpen = false
+                                }) { Icon(Icons.Default.CreateNewFolder, "导入小猪包") }
+                            }
+                            // Action: Export
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Surface(shape = RoundedCornerShape(8.dp), shadowElevation = 2.dp) {
+                                    Text(
+                                        "导出小猪包",
+                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
+                                    )
+                                }
+                                SmallFloatingActionButton(onClick = {
+                                    showExportPiggyPackDialog = true; viewModel.exportPiggyPack(); isFabMenuOpen = false
+                                }) { Icon(Icons.Outlined.Share, "导出小猪包") }
+                            }
+                            // Action: Add
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Surface(shape = RoundedCornerShape(8.dp), shadowElevation = 2.dp) {
+                                    Text(
+                                        "添加新的小猪",
+                                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp)
+                                    )
+                                }
+                                SmallFloatingActionButton(onClick = {
+                                    showImagePicker = true; isFabMenuOpen = false
+                                }) { Icon(Icons.Outlined.Add, "添加新的小猪") }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    FloatingActionButton(onClick = { isFabMenuOpen = !isFabMenuOpen }) {
                         Icon(
-                            imageVector = Icons.Outlined.Add, contentDescription = "添加新的小猪"
+                            imageVector = if (isFabMenuOpen) Icons.Default.Close else Icons.Default.Menu,
+                            contentDescription = "Menu"
                         )
-                    }, text = {
-                        Text("添加新的小猪")
-                    })
-
-                    Spacer(
-                        modifier = Modifier.height(5.dp)
-                    )
-
-                    ExtendedFloatingActionButton(modifier = Modifier.fillMaxWidth(), onClick = {
-                        showExportPiggyPackDialog = true
-                        viewModel.exportPiggyPack()
-                    }, icon = {
-                        Icon(
-                            imageVector = Icons.Outlined.Share, contentDescription = "导出小猪包"
-                        )
-                    }, text = {
-                        Text("导出小猪包")
-                    })
-
-
-                    Spacer(
-                        modifier = Modifier.height(5.dp)
-                    )
-
-                    ExtendedFloatingActionButton(modifier = Modifier.fillMaxWidth(), onClick = {
-                        showPiggyPackPicker = true
-                    }, icon = {
-                        Icon(
-                            imageVector = Icons.Default.CreateNewFolder, contentDescription = "导入小猪包"
-                        )
-                    }, text = {
-                        Text("导入小猪包")
-                    })
+                    }
                 }
             }
 

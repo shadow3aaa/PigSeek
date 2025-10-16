@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
+    alias(libs.plugins.kotlinx.serialization)
 }
 
 kotlin {
@@ -49,6 +50,9 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kmp.io)
             implementation(compose.components.resources)
+            implementation("io.ktor:ktor-client-core:${libs.versions.ktor.get()}")
+            implementation("io.ktor:ktor-client-content-negotiation:${libs.versions.ktor.get()}")
+            implementation("io.ktor:ktor-serialization-kotlinx-json:${libs.versions.ktor.get()}")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
