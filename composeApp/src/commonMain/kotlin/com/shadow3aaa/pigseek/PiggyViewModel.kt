@@ -153,9 +153,17 @@ class PiggyViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             _importProgress.value = 0f
 
+            // 1. 读取现有元数据
+            val existingMetadata = try {
+                Json.decodeFromString<Map<String, String>>(readMetadataRaw()).toMutableMap()
+            } catch (e: Exception) {
+                mutableMapOf()
+            }
+
             val zipFile = getPiggyPackFileFromUri(sourceUri)
             val targetDir = File(piggyHomePath()) // 解压到 piggyHomePath
 
+            // 2. 解压
             ZipFile(zipFile, FileMode.Read).use { zip ->
                 val entries = zip.entries
                 val total = entries.size
@@ -171,8 +179,12 @@ class PiggyViewModel : ViewModel() {
                 }
             }
 
-            val metadataRaw = readMetadataRaw()
-            _images.value = Json.decodeFromString(metadataRaw)
+            val newMetadataRaw = readMetadataRaw()
+            val newMetadata = Json.decodeFromString<Map<String, String>>(newMetadataRaw)
+            existingMetadata.putAll(newMetadata)
+
+            _images.value = existingMetadata
+            saveMetadataRaw(Json.encodeToString(existingMetadata))
         }
     }
 
