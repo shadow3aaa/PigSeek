@@ -72,7 +72,7 @@ class PiggyViewModel : ViewModel() {
                                 downloadedCount++
                                 remoteImages[sha]?.let { description ->
                                     localImages[sha] = description
-                                    _images.value = localImages
+                                    _images.value = localImages.toMap()
                                     saveMetadataRaw(Json.encodeToString(localImages))
                                 }
                                 _syncState.value = SyncState.Downloading(downloadedCount.toFloat() / totalToDownload.toFloat())
