@@ -34,6 +34,7 @@ class PiggyViewModel : ViewModel() {
     fun syncFromGitHub() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                _importProgress.value = 0f
                 _syncState.value = SyncState.FetchingMetadata
                 val repoOwner = "shadow3aaa"
                 val repoName = "PigSeek-Data"
@@ -209,7 +210,6 @@ class PiggyViewModel : ViewModel() {
 
     fun resetSyncState() {
         _syncState.value = SyncState.Idle
-        _importProgress.value = 0f
     }
 }
 
